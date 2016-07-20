@@ -351,23 +351,66 @@ function getworld()
 	end
 	if found == false then print("player not found") else print("found") end]]
 
-	rednet.send(servId, msgs[11], playerData.worlds[usrData.name])
+	
+	pInWorldList = window.create(oldTerm, 27, 1, 25, 9)
+	pInWorldList.setBackgroundColor(colors.gray)
+	pInWorldList.setTextColor(colors.lime)
+	pInWorldList.clear()
+
+	--[[
+				CLIENT METHOD
+
+				This method loads the maplayout and the data directly from the client.
+				I decided to use this while I was testing, because the server sometimes
+				failed to send the map. (more info in the SERVER METHOD comment)
+	]]
+
+	local file = fs.open(root.."maps/"..playerData.worlds[usrData.name].."/data.lvlDat","r")
+	local dat = file.readAll()
+	mapData = textutils.unserialize(dat)
+	file.close()
+	_map = paintutils.loadImage(root.."maps/"..playerData.worlds[usrData.name].."/data.lvl")
+	clear(colors.black, colors.white)
+	paintutils.drawImage(_map, 1, 1)
+	redrawEntitites()
+	--[[
+				SERVER METHOD
+
+				This method use(d) rednet to DOWNLOAD the map from the server,
+				so only the server had to update the maps and the Client was basically
+				universal for ALL servers
+
+				The problem here is that (at least for me in CCEmuRedux) the server sometimes failed
+				to send the map-data and layout, which leads to a black screen and no ability to move
+
+
+				If someone is able to fix this, please PM me on the forum, write a reply on the official topic,
+				or try to commit the fix on GitHub (idk how that works for unauthorized people lol)
+	]]
+
+
+
+	--[[rednet.send(servId, msgs[11], playerData.worlds[usrData.name])
 
 	id, msg, msg2 = rednet.receive(3)
 	if msg == msgs[2] then
+		term.setCursorPos(5,16)
+		term.write("TRUE")
 		local map = textutils.unserialize(msg2)
-		local file = fs.open("/tmp","w")
-		file.write(map.layout)
-		file.close()
+		local file = fs.open(root.."game/map","w")
+		file.write(map.layout)  					
+		file.close()													BUG WITH THIS: the server sometimes sends an empty map layout which leads to breaking the game
 		mapData = map.data
-		_map = paintutils.loadImage("/tmp")
-		fs.delete("/tmp")
+		_map = paintutils.loadImage(root.."game/map")
+		sleep(0.1)
+		--fs.delete(root.."game/map")
+		clear(colors.black, colors.white)
 		paintutils.drawImage(_map, 1, 1)
-		local file = fs.open("/tmp","w")
-		file.write(textutils.serialize(mapData))
-		file.close()
+		--local file = fs.open("/tmp","w")
+		--file.write(textutils.serialize(mapData))			ENABLE FOR DEBUGGING
+		--file.close()
 		redrawEntitites()
-	end
+	end]]
 end
 
 function redrawMap()
@@ -376,13 +419,13 @@ end
 
 function redrawEntitites()
 	local counter = 0
-	local myworld = "house1"
-	for _, player in pairs(playerData.users) do
+	local myworld = playerData.worlds[usrData.name]
+	--[[for _, player in pairs(playerData.users) do
 		if player == usrData.name then
 			myworld = playerData.worlds[player]
 		end
 		
-	end
+	end]]
 	for _, player in pairs(playerData.users) do
 		if playerData.worlds[player] == myworld then
 			local x = playerData.posX[_]
@@ -391,10 +434,22 @@ function redrawEntitites()
 			term.setTextColor(colors.white)
 			term.setBackgroundColor(colors.black)
 			term.write("P")
-			term.setCursorPos(1,13+counter)
+			term.redirect(pInWorldList)
+			term.setCursorPos(1,1+counter)
+			term.setTextColor(colors.lime)
+			term.setBackgroundColor(colors.gray)
 			term.write(player)
+			term.setBackgroundColor(colors.black)
+			term.setTextColor(colors.white)
+			term.redirect(oldTerm)
 			counter = counter+1
 		end
+	end
+	for _, ladderY in ipairs(mapData.laddersY) do
+		term.setCursorPos(mapData.laddersX[_], ladderY)
+		term.setBackgroundColor(colors.brown)
+		term.setTextColor(colors.yellow)
+		term.write("H")
 	end
 end
 
@@ -408,13 +463,6 @@ function getEntities()
 			local counter = 0
 			term.setBackgroundColor(colors.black)
 			term.setTextColor(colors.white)
-			term.setCursorPos(31,1)
-			term.write("HELLO")
-			for _, usr in pairs(playerData.users) do
-				term.setCursorPos(31,2+counter)
-				term.write(usr)
-				counter = counter+1
-			end
 			redrawMap()
 			redrawEntitites()
 		--[[else
@@ -568,6 +616,33 @@ function move()
 				redrawEntitites()
 			end
 			sleep(lagfaktor)
+		elseif key == keys.enter then
+			oldY = tonumber(playerData.posY[usrData.name])
+			oldX = tonumber(playerData.posX[usrData.name])
+			local block = true
+			local ladderdest = "house1"
+			for _, bY in ipairs(mapData.laddersY) do
+				if oldY == bY+1 and oldX == mapData.laddersX[_] or oldY == bY-1 and oldX == mapData.laddersX[_] or oldY == bY and oldX == mapData.laddersX[_]-1 or oldY == bY and oldX == mapData.laddersX[_]+1 then
+					term.setCursorPos(27,3)
+					term.setTextColor(colors.white)
+					term.write("BLACK")
+					block = false
+					ladderdest = mapData.ladderDestination[_]
+						break
+				else
+
+					block = true
+				end
+			end
+			if block ~= true then
+				playerData.worlds[usrData.name] = ladderdest
+				uploadEntities()
+				--drawGame()
+				getworld()
+				--[[redrawMap()
+				redrawEntitites()]]
+			end
+			sleep(lagfaktor)
 		end
 
 	end
@@ -617,5 +692,5 @@ else
 	clear(colors.black, colors.white)
 	print("Please execute the launcher...")
 end
-
+oldTerm = term.native()
 drawMainMenu()

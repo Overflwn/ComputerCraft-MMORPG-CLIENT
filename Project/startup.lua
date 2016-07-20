@@ -343,7 +343,7 @@ function sendLogin()
 		encpw = "",
 	}
 	usrData.name = usrName
-	usrData.encpw = sha.sha256(tmppw)
+	usrData.encpw = sha.sha256(tmppw..usrName)
 	rednet.send(servId, msgs[4], textutils.serialize(usrData))
 	id, msg = rednet.receive(3)
 	if msg == msgs[2] then
@@ -361,7 +361,7 @@ function sendRegister()
 		name = "",
 		encpw = "",
 	}
-	usrData.encpw = sha.sha256(tmppw)
+	usrData.encpw = sha.sha256(tmppw..usrName)
 	usrData.name = usrName
 
 	rednet.send(servId, msgs[5], textutils.serialize(usrData))

@@ -1,0 +1,249 @@
+--Editor (yaay make your own levels based on this "engine")
+--Again, written by me c:
+--(I know, I'm shit at programming but hey why not C:)
+
+--Variablen
+_ver = 0.1
+_verstr = "0.1"
+pfad = ""
+
+lvlData = {
+	spawnPosX="1",
+	spawnPosY="1",
+	blocksX = {
+
+	},
+	blocksY = {
+
+	}
+}
+
+--Funktionen
+function clear(bg, fg)
+	term.setCursorPos(1,1)
+	term.setBackgroundColor(bg)
+	term.setTextColor(fg)
+	term.clear()
+end
+
+function menu()
+	clear(colors.black, colors.white)
+	term.setBackgroundColor(colors.lime)
+	term.setCursorPos(25, 6)
+	term.write("NEW")
+	term.setCursorPos(24, 8)
+	term.write("LOAD")
+	term.setCursorPos(24, 10)
+	term.write("EXIT")
+	menu = true
+	while menu do
+		local event, button, x, y = os.pullEventRaw("mouse_click")
+		if button == 1 and x >= 25 and x <= 27 and y == 6 then
+			menu = false
+			menu2()
+		end
+	end
+end
+
+function menu2()
+	clear(colors.black, colors.white)
+	oldTerm = term.native()
+	local graywindow = window.create(oldTerm, 15, 5, 20, 5)
+	term.redirect(graywindow)
+	term.setBackgroundColor(colors.lightGray)
+	term.setCursorPos(1,1)
+	term.clear()
+	local textBox = window.create(term.current(), 2, 2, 18, 1)
+	textBox.setBackgroundColor(colors.gray)
+	textBox.setTextColor(colors.lime)
+	textBox.clear()
+	textBox.write("Enter Name/Desti..")
+	term.setBackgroundColor(colors.gray)
+	term.setTextColor(colors.white)
+	term.setCursorPos(2, 4)
+	term.write("New")
+	term.setCursorPos(16, 4)
+	term.write("Load")
+	menu = true
+	while menu do
+		local event, button, x, y = os.pullEvent("mouse_click")
+		if button == 1 and x >= 16 and x <= 34 and y == 6 then
+			term.redirect(textBox)
+			term.clear()
+			term.setCursorPos(1,1)
+			local eingabe = read()
+			pfad = eingabe
+			term.setCursorPos(1,1)
+			term.clear()
+			term.write(eingabe)
+			term.redirect(graywindow)
+		elseif button == 1 and x >= 16 and x <= 18 and y == 8 then
+			if fs.exists(pfad..".lvl") then
+				textBox.setCursorPos(1,1)
+				textBox.clear()
+				textBox.setTextColor(colors.red)
+				textBox.write("Already exists.")
+				textBox.setTextColor(colors.lime)
+			elseif pfad == "" or pfad == nil then
+				textBox.setCursorPos(1,1)
+				textBox.clear()
+				textBox.setTextColor(colors.red)
+				textBox.write("Please fill in.")
+				textBox.setTextColor(colors.lime)
+			else
+				term.redirect(oldTerm)
+				term.setCursorPos(1,1)
+				clear(colors.black, colors.white)
+				menu = false
+				print("Please draw your LevelDESIGN.")
+				print("This will be that, what you see when playing the level.")
+				sleep(3)
+				shell.run("paint "..pfad..".lvl")
+				
+				editor()
+			end
+		elseif button == 1 and x >= 30 and x <= 34 and y == 8 then
+			if fs.exists(pfad..".lvl") and fs.exists(pfad..".lvlDat") then
+				term.redirect(oldTerm)
+				menu = false
+				editor("true")
+			elseif fs.exists(pfad..".lvl") then
+				term.redirect(oldTerm)
+				menu = false
+				editor("false")
+			else
+				textBox.setCursorPos(1,1)
+				textBox.clear()
+				textBox.setTextColor(colors.red)
+				textBox.write("Doesn't exist.")
+				textBox.setTextColor(colors.lime)
+			end
+		end
+	end
+
+end
+
+function loadDat()
+	local file = fs.open(pfad..".lvlDat","r")
+	local inhalt = file.readAll()
+	lvlData = textutils.unserialize(inhalt)
+	file.close()
+end
+
+function editor(loadData)
+	clear(colors.black, colors.white)
+	lvl = paintutils.loadImage(pfad..".lvl")
+	paintutils.drawImage(lvl, 1, 1)
+	if loadData == "true" then
+		loadDat()
+		reloadMap()
+	end
+	term.setCursorPos(1,19)
+	term.setBackgroundColor(colors.lightGray)
+	term.clearLine()
+	term.setBackgroundColor(colors.lime)
+	term.write(" Block ")
+	term.setBackgroundColor(colors.lightGray)
+	term.write(" ")
+	term.setBackgroundColor(colors.lime)
+	term.write(" Spawn ")
+	term.setBackgroundColor(colors.lightGray)
+	term.write(" ")
+	term.setBackgroundColor(colors.lime)
+	term.write(" Remove ")
+	editing = true
+	while editing do
+		local event, button, x, y = os.pullEventRaw()
+		if event == "mouse_click" and button == 1 and x >= 1 and x <= 7 and y == 19 then
+			currentBlock = "block"
+		elseif event == "mouse_click" and button == 1 and x >= 9 and x <= 15 and y == 19 then
+			currentBlock = "spawn"
+		elseif event == "mouse_click" and button == 1 and x >= 17 and x <= 24 and y == 19 then
+			currentBlock = "remove"
+		elseif event == "mouse_click" and button == 1 and x >= 1 and x <= 51 and y >= 1 and y <= 18 then
+			if currentBlock == "block" then
+				term.setCursorPos(x, y)
+				term.setBackgroundColor(colors.brown)
+				term.setTextColor(colors.white)
+				term.write("B")
+				local x = tostring(x)
+				local y = tostring(y)
+				table.insert(lvlData.blocksX, x)
+				table.insert(lvlData.blocksY, y)
+				reloadMap()
+			elseif currentBlock == "spawn" then
+				term.setCursorPos(x, y)
+				term.setBackgroundColor(colors.blue)
+				term.setTextColor(colors.white)
+				term.write("S")
+				local x = tostring(x)
+				local y = tostring(y)
+				lvlData.spawnPosX = x
+				lvlData.spawnPosY = y
+				reloadMap()
+			elseif currentBlock == "remove" then
+				for _, block in ipairs(lvlData.blocksX) do
+					local blockY = tonumber(lvlData.blocksY[_])
+					local block = tonumber(block)
+					if x == block and y == blockY then
+						lvlData.blocksX[_] = nil
+						lvlData.blocksY[_] = nil
+					end
+				end
+				if x == lvlData.spawnPosX and y == lvlData.spawnPosY then
+					lvlData.spawnPosX = "1"
+					lvlData.spawnPosY = "1"
+				end
+				reloadMap()
+			end
+		elseif event == "key" and button == keys.s then
+			local file = fs.open(pfad..".lvlDat","w")
+			local lvlData = textutils.serialize(lvlData)
+			file.write(lvlData)
+			file.close()
+			clear(colors.black, colors.white)
+
+			editing = false
+			break
+		end
+
+	end
+end
+
+function reloadMap()
+	clear(colors.black, colors.white)
+	term.setCursorPos(1,19)
+	term.setBackgroundColor(colors.lightGray)
+	term.clearLine()
+	term.setBackgroundColor(colors.lime)
+	term.write(" Block ")
+	term.setBackgroundColor(colors.lightGray)
+	term.write(" ")
+	term.setBackgroundColor(colors.lime)
+	term.write(" Spawn ")
+	term.setBackgroundColor(colors.lightGray)
+	term.write(" ")
+	term.setBackgroundColor(colors.lime)
+	term.write(" Remove ")
+	term.setCursorPos(1,1)
+	paintutils.drawImage(lvl, 1, 1)
+	for _, block in ipairs(lvlData.blocksX) do
+		local blockY = tonumber(lvlData.blocksY[_])
+		local block = tonumber(block)
+		term.setCursorPos(block, blockY)
+		term.setBackgroundColor(colors.brown)
+		term.setTextColor(colors.white)
+		term.write("B")
+	end
+	local sX = tonumber(lvlData.spawnPosX)
+	local sY = tonumber(lvlData.spawnPosY)
+	term.setCursorPos(sX, sY)
+	term.setBackgroundColor(colors.blue)
+	term.setTextColor(colors.white)
+	term.write("S")
+end
+
+
+
+--Code
+menu2()
