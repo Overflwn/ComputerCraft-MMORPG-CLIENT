@@ -16,6 +16,13 @@ _verstr = "0.5"
 running = true
 menu = false
 servId = 0
+chatMax = 0
+chatLeft = 0
+chatMissing = 0
+
+chat = {
+
+}
 
 msgs = {
 	"ping",
@@ -29,7 +36,9 @@ msgs = {
 	"getplayerdata",
 	"spawnplayer",
 	"getworlddata",
-	"uploadplayerdata"
+	"uploadplayerdata",
+	"getChat",
+	"sendMessage"
 }
 
 numbrs = {
@@ -370,8 +379,10 @@ function getworld()
 	mapData = textutils.unserialize(dat)
 	file.close()
 	_map = paintutils.loadImage(root.."maps/"..playerData.worlds[usrData.name].."/data.lvl")
+	term.redirect(mapWindow)
 	clear(colors.black, colors.white)
 	paintutils.drawImage(_map, 1, 1)
+	term.redirect(oldTerm)
 	redrawEntitites()
 	--[[
 				SERVER METHOD
@@ -414,10 +425,13 @@ function getworld()
 end
 
 function redrawMap()
+	term.redirect(mapWindow)
 	paintutils.drawImage(_map, 1, 1)
+	term.redirect(oldTerm)
 end
 
 function redrawEntitites()
+	term.redirect(mapWindow)
 	local counter = 0
 	local myworld = playerData.worlds[usrData.name]
 	--[[for _, player in pairs(playerData.users) do
@@ -441,7 +455,7 @@ function redrawEntitites()
 			term.write(player)
 			term.setBackgroundColor(colors.black)
 			term.setTextColor(colors.white)
-			term.redirect(oldTerm)
+			term.redirect(mapWindow)
 			counter = counter+1
 		end
 	end
@@ -451,13 +465,14 @@ function redrawEntitites()
 		term.setTextColor(colors.yellow)
 		term.write("H")
 	end
+	term.redirect(oldTerm)
 end
 
 function getEntities()
 	while true do
 		sleep(0.1)
 		rednet.send(servId, msgs[9])
-		id, msg, msg2 = rednet.receive()
+		id, msg, msg2 = rednet.receive(0.1)
 		if msg == msgs[2] then
 			playerData = textutils.unserialize(msg2)
 			local counter = 0
@@ -491,10 +506,10 @@ function uploadEntities()
 
 	id, msg = rednet.receive(0.1)
 
-	if msg ~=msgs[2] then
+	--[[if msg ~=msgs[2] then
 		clear(colors.black, colors.white)
 		print("Timeout.")
-	end
+	end]]
 end
 
 function move()
@@ -648,6 +663,50 @@ function move()
 	end
 end
 
+function getChat()
+	while true do
+
+		local id, msg, msg2 = rednet.receive(tostring(servId), 0.1)
+		if tonumber(msg2) == servId then
+			chatWindow.scroll(-1)
+			chatWindow.setCursorPos(1,1)
+			term.redirect(chatWindow)
+			term.write(msg)
+			term.redirect(oldTerm)
+		end
+	end
+end
+
+
+function sendMessage()
+	--while true do
+		--local _, k = os.pullEvent("key")
+		--if k == keys.t then
+			--reading = true
+			term.redirect(chatBox)
+			term.setBackgroundColor(colors.lightGray)
+			term.setTextColor(colors.lime)
+			term.clear()
+			term.setCursorPos(1,1)
+			term.write("> ")
+			term.setCursorBlink(true)
+			local e = limitRead(15)
+			term.setCursorBlink(false)
+			--reading = false
+			term.redirect(oldTerm)
+			
+			chatWindow.scroll(-1)
+			chatWindow.setCursorPos(1,1)
+			chatWindow.setBackgroundColor(colors.gray)
+			chatWindow.setTextColor(colors.lime)
+			chatWindow.write(usrData.name..": "..e)
+			
+			rednet.broadcast(usrData.name..": "..e, tostring(servId))
+			
+		--end
+	--end
+end
+
 function drawGame()
 	clear(colors.black, colors.white)
 	game = true
@@ -656,22 +715,50 @@ function drawGame()
 		print("Error: Unknown.")
 		game= false
 	end
-
+	
+	chatWindow = window.create(oldTerm, 1, 11, 25, 8)
+	chatWindow.setBackgroundColor(colors.gray)
+	chatWindow.setTextColor(colors.lime)
+	chatWindow.clear()
+	chatBox = window.create(oldTerm, 1, 19, 25, 1)
+	chatBox.setBackgroundColor(colors.lightGray)
+	chatBox.setTextColor(colors.lime)
+	chatBox.clear()
+	mapWindow = window.create(oldTerm, 1, 1, 25, 9)
+	mapWindow.setBackgroundColor(colors.black)
+	mapWindow.setTextColor(colors.white)
+	mapWindow.clear()
 	getworld()
-
 	local c1 = coroutine.create(getEntities)
 	local c2 = coroutine.create(move)
+	local c3 = coroutine.create(getChat)
+	local c5 = coroutine.create(sendMessage)
 
 	local evt = {}
-
 	while true do
-		coroutine.resume(c1, unpack(evt))
-		coroutine.resume(c2, unpack(evt))
+		
+		if evt[2] ~= keys.t or evt[2] ~= keys.delete then
+			coroutine.resume(c1, unpack(evt))
+			coroutine.resume(c2, unpack(evt))
+			coroutine.resume(c3, unpack(evt))
+		end
+		--coroutine.resume(c5, unpack(evt))
 		evt = {os.pullEvent()}
-
-		if evt[1] == key and evt[2] == keys.delete then
+		if evt[1] == "key" and evt[2] == keys.delete then
 			clear(colors.black, colors.white)
 			break
+		elseif evt[1] == "key" and evt[2] == keys.t then
+			sendMessage()
+			evt = {}
+			c1 = nil
+			c2 = nil
+			c3 = nil
+			c1 = coroutine.create(getEntities)
+			c2 = coroutine.create(move)
+			c3 = coroutine.create(getChat)
+			coroutine.resume(c1, unpack(evt))
+			coroutine.resume(c2, unpack(evt))
+			coroutine.resume(c3, unpack(evt))
 		end
 	end
 end

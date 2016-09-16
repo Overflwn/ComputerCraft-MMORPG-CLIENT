@@ -246,7 +246,7 @@ function drawLauncher()
 			term.redirect(usrTxtBx)
 			term.clear()
 			term.setCursorPos(1,1)
-			usrName = limitRead(23)
+			usrName = limitRead(8)
 			term.redirect(grayWindow)
 			if #usrName > 0 then
 				succ, t = checkUsrName(usrName)
